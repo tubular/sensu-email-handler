@@ -1,3 +1,12 @@
+// This is a TB patched version. The extra feature is to merge toEmail lists.
+// Usage:
+//   Add annotation "sensu.io/plugins/email/config/toEmail/merge" to check and/or entity.
+//   Value should be a comma separated string.
+// Note:
+//   We can still override the handler config as originally documented, by using annotation
+//   "sensu.io/plugins/email/config/toEmail".
+//   The merge happens after the overrides.
+
 package main
 
 import (
@@ -272,6 +281,40 @@ func checkArgs(_ *corev2.Event) error {
 	return nil
 }
 
+func mergeToEmail(event *corev2.Event) []string {
+	toEmailKey := config.PluginConfig.Keyspace + "/toEmail/merge"
+
+	// Source 1: check annotations
+	checkMeta := event.GetCheck().GetObjectMeta()
+	checkToEmailStr := checkMeta.GetAnnotations()[toEmailKey]
+	checkToEmailList := strings.Split(checkToEmailStr, ",")
+
+	// Source 2: entity annotations
+	entityMeta := event.GetEntity().GetObjectMeta()
+	entityToEmailStr := entityMeta.GetAnnotations()[toEmailKey]
+	entityToEmailList := strings.Split(entityToEmailStr, ",")
+
+	// Source 3: handler config. Shallow copy and merge with other sources
+	mergedToEmailList := config.ToEmail
+	mergedToEmailList = append(mergedToEmailList, checkToEmailList...)
+	mergedToEmailList = append(mergedToEmailList, entityToEmailList...)
+
+	// Trim and dedupe
+	mergedToEmailSet := map[string]bool{}
+	for _, email := range mergedToEmailList {
+		trimmed := strings.TrimSpace(email)
+		mergedToEmailSet[trimmed] = true
+	}
+
+	// Convert back to list
+	resultList := []string{}
+	for email, _ := range mergedToEmailSet {
+		resultList = append(resultList, email)
+	}
+
+	return resultList
+}
+
 func sendEmail(event *corev2.Event) error {
 	var contentType string
 
@@ -292,7 +335,9 @@ func sendEmail(event *corev2.Event) error {
 		return bodyErr
 	}
 
-	recipients := newRcpts(config.ToEmail)
+	// Merge the config.ToEmail (after overriding) with check annotations and entity annotations.
+	mergedToEmail := mergeToEmail(event)
+	recipients := newRcpts(mergedToEmail)
 
 	t := time.Now()
 
