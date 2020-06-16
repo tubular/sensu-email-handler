@@ -1,6 +1,6 @@
 // This is a TB patched version. The extra feature is to merge toEmail lists.
 // Usage:
-//   Add annotation "sensu.io/plugins/email/config/toEmail/merge" to check and/or entity.
+//   Add annotation "sensu.io/plugins/email/config/toEmail/addresses" to check and/or entity.
 //   Value should be a comma separated string.
 // Note:
 //   We can still override the handler config as originally documented, by using annotation
@@ -281,8 +281,8 @@ func checkArgs(_ *corev2.Event) error {
 	return nil
 }
 
-func mergeToEmail(event *corev2.Event) []string {
-	toEmailKey := config.PluginConfig.Keyspace + "/toEmail/merge"
+func mergeToEmailLists(event *corev2.Event) []string {
+	toEmailKey := config.PluginConfig.Keyspace + "/toEmail/addresses"
 
 	// Source 1: check annotations
 	checkMeta := event.GetCheck().GetObjectMeta()
@@ -336,7 +336,7 @@ func sendEmail(event *corev2.Event) error {
 	}
 
 	// Merge the config.ToEmail (after overriding) with check annotations and entity annotations.
-	mergedToEmail := mergeToEmail(event)
+	mergedToEmail := mergeToEmailLists(event)
 	recipients := newRcpts(mergedToEmail)
 
 	t := time.Now()
