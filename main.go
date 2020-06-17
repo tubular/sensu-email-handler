@@ -6,6 +6,11 @@
 //   We can still override the handler config as originally documented, by using annotation
 //   "sensu.io/plugins/email/config/toEmail".
 //   The merge happens after the overrides.
+// Packaging:
+//   1. Generate the binary (as documented in the original README):
+//   	go build -o /usr/local/bin/sensu-email-handler main.go
+//   2. Move the binary into a bin folder
+//   3. Archive the bin folder into a tarball
 
 package main
 
@@ -303,7 +308,9 @@ func mergeToEmailLists(event *corev2.Event) []string {
 	mergedToEmailSet := map[string]bool{}
 	for _, email := range mergedToEmailList {
 		trimmed := strings.TrimSpace(email)
-		mergedToEmailSet[trimmed] = true
+		if len(trimmed) > 0 {
+			mergedToEmailSet[trimmed] = true
+		}
 	}
 
 	// Convert back to list
